@@ -371,7 +371,7 @@ struct PromptToolbar: View {
             } label: { Image(systemName: "waveform") }.menuStyle(.borderlessButton).frame(width: 34).help("Prompt mode")
             if model.promptMode == .fixedSpeed {
                 Button { model.adjustSpeed(-10) } label: { Image(systemName: "tortoise.fill") }.help("Slower")
-                Text("\(Int(model.wordsPerMinute))").font(.caption.monospacedDigit()).foregroundStyle(.white)
+                Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.caption.monospacedDigit()).foregroundStyle(.white)
                 Button { model.adjustSpeed(10) } label: { Image(systemName: "hare.fill") }.help("Faster")
             }
             Button { model.settings.style.fontSize = max(14, model.settings.style.fontSize - 2) } label: { Image(systemName: "textformat.size.smaller") }.help("Smaller text")

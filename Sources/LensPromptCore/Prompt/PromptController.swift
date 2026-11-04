@@ -16,13 +16,22 @@ public enum PromptMode: String, Codable, CaseIterable, Sendable {
 /// script-token indices; the view maps them to pixels. Deterministic and clock-free:
 /// the caller advances time with `tick(dt:)`.
 public struct PromptController: Equatable, Sendable {
-    public var mode: PromptMode = .speech
+    public var mode: PromptMode = .speech {
+        didSet {
+            if mode == .fixedSpeed && oldValue != .fixedSpeed { fixedScrollY = layoutY(for: display) }
+        }
+    }
     /// Whether the prompt is advancing (fixed speed) / accepting speech moves (speech mode).
     /// Independent of recording: pausing the prompt never pauses a take.
     public var isRunning = false
     public private(set) var target: Double = 0
     public private(set) var display: Double = 0
-    public var wordsPerMinute: Double = 140
+    /// Visual speed in screen points per second, independent of words per line.
+    public var pointsPerSecond: Double = 30
+    public private(set) var fixedScrollY: Double = 0
+    private var tokenY: [Double] = []
+    private var endY: Double = 0
+    public var renderedY: Double? { mode == .fixedSpeed && !tokenY.isEmpty ? fixedScrollY : nil }
     public private(set) var tokenCount: Int = 0
     /// Ratio of comparison tokens to display words (contractions/numbers expand).
     public private(set) var tokensPerWord: Double = 1
@@ -35,6 +44,7 @@ public struct PromptController: Equatable, Sendable {
 
     public mutating func load(document: ScriptDocument, position: Int = 0) {
         tokenCount = document.tokens.count
+        tokenY = []; endY = 0; fixedScrollY = 0
         tokensPerWord = document.wordCount > 0 ? Double(document.tokens.count) / Double(document.wordCount) : 1
         lineStarts = document.sentenceStarts
         jump(to: Double(position), animated: false)
@@ -47,7 +57,40 @@ public struct PromptController: Equatable, Sendable {
 
     public mutating func jump(to position: Double, animated: Bool = true) {
         target = clamp(position)
-        if !animated { display = target }
+        if !animated || mode == .fixedSpeed { display = target }
+        fixedScrollY = layoutY(for: target)
+    }
+
+    /// Supplies actual typeset positions, including wrapped lines and paragraph gaps.
+    public mutating func installLayout(tokenY: [Double], endY: Double) {
+        guard tokenY.count == tokenCount, tokenY.allSatisfy(\.isFinite), endY.isFinite,
+              zip(tokenY, tokenY.dropFirst()).allSatisfy({ $0.0 <= $0.1 }) else { return }
+        self.tokenY = tokenY
+        self.endY = max(endY, tokenY.last ?? 0)
+        fixedScrollY = layoutY(for: display)
+    }
+
+    private func layoutY(for position: Double) -> Double {
+        guard let first = tokenY.first else { return 0 }
+        if position >= Double(tokenCount) { return endY }
+        let i = max(0, min(tokenY.count - 1, Int(position)))
+        let next = i + 1 < tokenY.count ? tokenY[i + 1] : endY
+        return max(first, tokenY[i] + (next - tokenY[i]) * (position - Double(i)))
+    }
+
+    /// Token index for the line crossing the reading marker. Scrolling itself never
+    /// depends on this inverse mapping and therefore cannot pause between words.
+    private func position(atY y: Double) -> Double {
+        if y >= endY { return Double(tokenCount) }
+        guard !tokenY.isEmpty else { return target }
+        var lo = 0, hi = tokenY.count
+        while lo < hi {
+            let mid = (lo + hi) / 2
+            if tokenY[mid] <= y { lo = mid + 1 } else { hi = mid }
+        }
+        var index = max(0, lo - 1)
+        while index > 0 && tokenY[index - 1] == tokenY[index] { index -= 1 }
+        return Double(index)
     }
 
     /// Speech mode: accept the aligner's position.
@@ -60,15 +103,17 @@ public struct PromptController: Equatable, Sendable {
     public mutating func previousLine() { jump(to: Double(lineStart(before: position))) }
 
     public mutating func adjustSpeed(by delta: Double) {
-        wordsPerMinute = min(400, max(40, wordsPerMinute + delta))
+        pointsPerSecond = min(150, max(5, pointsPerSecond + delta))
     }
 
     /// Advances fixed-speed scrolling and the smoothed display position.
     public mutating func tick(dt: Double) {
         guard dt > 0 else { return }
         if mode == .fixedSpeed && isRunning && !isAtEnd {
-            target = clamp(target + wordsPerMinute / 60 * tokensPerWord * dt)
-            display = target  // already continuous
+            guard !tokenY.isEmpty else { return }
+            fixedScrollY = min(endY, fixedScrollY + max(0, pointsPerSecond) * dt)
+            target = position(atY: fixedScrollY)
+            display = target
             return
         }
         let diff = target - display

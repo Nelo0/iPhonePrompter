@@ -75,6 +75,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var previewHidden = false
     public var promptMode: PromptMode = .speech
     public var wordsPerMinute: Double = 140
+    public var scrollPointsPerSecond: Double = 30
     public var style = PromptStyle()
     public var promptFrame: SavedFrame?
     public var phoneFrame: SavedFrame?
@@ -106,6 +107,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         previewHidden = v(.previewHidden, d.previewHidden)
         promptMode = v(.promptMode, d.promptMode)
         wordsPerMinute = v(.wordsPerMinute, d.wordsPerMinute)
+        scrollPointsPerSecond = min(150, max(5, v(.scrollPointsPerSecond, d.scrollPointsPerSecond)))
         style = v(.style, d.style)
         promptFrame = v(.promptFrame, d.promptFrame); phoneFrame = v(.phoneFrame, d.phoneFrame)
         lensOffset = v(.lensOffset, d.lensOffset); clusterSide = v(.clusterSide, d.clusterSide)

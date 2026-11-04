@@ -13,6 +13,7 @@ final class PromptTextView: NSView {
     private var builtVersion = -1
     private var builtStyle: PromptStyle?
     private var builtWidth: CGFloat = -1
+    private var builtMode: PromptMode?
     private var tokenMidY: [CGFloat] = []
     private var tokenLine: [Int] = []
     private var lineRects: [CGRect] = []
@@ -57,7 +58,7 @@ final class PromptTextView: NSView {
         lastTimestamp = ts
         guard let model else { return }
         let moved = model.tickPrompt(dt: dt)
-        let needsRebuild = model.documentVersion != builtVersion || model.settings.style != builtStyle || abs(bounds.width - builtWidth) > 0.5
+        let needsRebuild = model.documentVersion != builtVersion || model.settings.style != builtStyle || model.promptMode != builtMode || abs(bounds.width - builtWidth) > 0.5
         if needsRebuild { rebuild() }
         if moved || needsRebuild { updateActiveLineColors(); needsDisplay = true }
     }
@@ -102,9 +103,12 @@ final class PromptTextView: NSView {
         var lastLine = -1
         for (i, l) in tokenLine.enumerated() where l != lastLine { starts.append(i); lastLine = l }
         model.prompt.lineStarts = starts
+        let endY = (tokenMidY.last ?? 0) + (lineRects.last?.height ?? 30)
+        model.prompt.installLayout(tokenY: tokenMidY.map(Double.init), endY: Double(endY))
         builtVersion = model.documentVersion
         builtStyle = style
         builtWidth = bounds.width
+        builtMode = model.promptMode
         coloredLine = -1
     }
 
@@ -127,6 +131,8 @@ final class PromptTextView: NSView {
         guard let style = model?.settings.style else { return bounds.midY }
         let inset = CGFloat(style.edgeInset)
         let lineH = lineRects.first.map { $0.height + CGFloat(style.lineSpacing) * 0.5 } ?? CGFloat(style.fontSize * 1.3)
+        // Voice following always spends the panel height on upcoming text.
+        if model?.promptMode == .speech { return min(12, max(0, inset)) + lineH / 2 }
         switch style.activeEdge {
         case .top: return inset + lineH / 2
         case .bottom: return bounds.height - inset - lineH * (0.5 + CGFloat(style.upcomingLinesBelow))
@@ -166,9 +172,10 @@ final class PromptTextView: NSView {
         let style = model.settings.style
         NSColor.black.withAlphaComponent(CGFloat(style.backgroundOpacity)).setFill()
         bounds.fill()
-        if builtVersion != model.documentVersion || builtStyle != style { rebuild(); updateActiveLineColors() }
+        if builtVersion != model.documentVersion || builtStyle != style || builtMode != model.promptMode { rebuild(); updateActiveLineColors() }
         let pad = CGFloat(style.horizontalPadding)
-        let originY = (anchorY - y(for: model.prompt.display)).rounded()
+        let scrollY = model.prompt.renderedY.map { CGFloat($0) } ?? y(for: model.prompt.display)
+        let originY = anchorY - scrollY
         currentOriginY = originY
 
         // Active line band.
@@ -180,7 +187,12 @@ final class PromptTextView: NSView {
             band.fill()
         }
         let visible = NSRect(x: 0, y: -originY, width: container.size.width, height: bounds.height)
-        let glyphs = layout.glyphRange(forBoundingRect: visible, in: container)
+        var glyphs = layout.glyphRange(forBoundingRect: visible, in: container)
+        if model.promptMode == .speech, line >= 0, line < lineCharRanges.count {
+            let start = lineCharRanges[line].location
+            let upcoming = layout.glyphRange(forCharacterRange: NSRange(location: start, length: storage.length - start), actualCharacterRange: nil)
+            glyphs = NSIntersectionRange(glyphs, upcoming)
+        }
         layout.drawGlyphs(forGlyphRange: glyphs, at: NSPoint(x: pad, y: originY))
 
         if model.document.isEmpty {

@@ -168,12 +168,14 @@ final class PromptControllerTests: XCTestCase {
         var p = PromptController()
         p.load(document: doc())
         p.mode = .fixedSpeed
-        p.wordsPerMinute = 60  // one word per second
+        p.installLayout(tokenY: (0..<10).map { Double($0) * 20 }, endY: 200)
+        p.pointsPerSecond = 20
         p.tick(dt: 1)
         XCTAssertEqual(p.target, 0, "paused prompt does not move")
         p.isRunning = true
         p.tick(dt: 2.5)
-        XCTAssertEqual(p.target, 2.5, accuracy: 0.001)
+        XCTAssertEqual(p.fixedScrollY, 50, accuracy: 0.001)
+        XCTAssertEqual(p.target, 2, accuracy: 0.001)
         XCTAssertEqual(p.display, p.target)
         p.tick(dt: 100)
         XCTAssertEqual(p.target, 10)
@@ -195,6 +197,53 @@ final class PromptControllerTests: XCTestCase {
         XCTAssertLessThanOrEqual(p.display, 5)
     }
 
+    func testFixedScrollIsLinearAcrossUnevenLinesAndParagraphGaps() {
+        var p = PromptController()
+        p.load(document: doc())
+        // A long first line, a short second line, and a large paragraph gap.
+        p.installLayout(tokenY: [0, 0, 0, 0, 40, 40, 140, 140, 140, 180], endY: 220)
+        p.mode = .fixedSpeed
+        p.pointsPerSecond = 10
+        p.isRunning = true
+        for second in 1...20 {
+            p.tick(dt: 1)
+            XCTAssertEqual(p.renderedY!, Double(second * 10), accuracy: 0.0001)
+        }
+        p.tick(dt: 10)
+        XCTAssertEqual(p.renderedY, 220)
+        XCTAssertTrue(p.isAtEnd)
+    }
+
+    func testFixedScrollPauseAndManualSeekDoNotDriftOrJumpOnResume() {
+        var p = PromptController()
+        p.load(document: doc())
+        p.installLayout(tokenY: [0, 0, 0, 40, 40, 40, 40, 80, 80, 80], endY: 120)
+        p.mode = .fixedSpeed; p.isRunning = true; p.pointsPerSecond = 10
+        p.tick(dt: 2.5)
+        p.isRunning = false
+        p.tick(dt: 10)
+        XCTAssertEqual(p.renderedY, 25)
+        p.isRunning = true
+        p.tick(dt: 0.5)
+        XCTAssertEqual(p.renderedY, 30)
+        p.jump(to: 7)
+        XCTAssertEqual(p.renderedY, 80)
+        p.tick(dt: 0.5)
+        XCTAssertEqual(p.renderedY, 85)
+    }
+
+    func testFixedScrollDistanceIsIndependentOfFrameRate() {
+        var slow = PromptController()
+        slow.load(document: doc())
+        slow.installLayout(tokenY: (0..<10).map { Double($0) * 100 }, endY: 1000)
+        slow.mode = .fixedSpeed; slow.isRunning = true; slow.pointsPerSecond = 24
+        var fast = slow
+        for _ in 0..<10 { slow.tick(dt: 0.1) }
+        for _ in 0..<120 { fast.tick(dt: 1.0 / 120) }
+        XCTAssertEqual(slow.renderedY!, fast.renderedY!, accuracy: 0.0001)
+        XCTAssertEqual(fast.renderedY!, 24, accuracy: 0.0001)
+    }
+
     func testManualLineNavigation() {
         var p = PromptController()
         p.load(document: doc())  // sentence starts: 0, 3, 7
@@ -206,7 +255,7 @@ final class PromptControllerTests: XCTestCase {
         p.previousLine(); XCTAssertEqual(p.position, 3, "from mid-line goes to the line start first")
         p.previousLine(); XCTAssertEqual(p.position, 0)
         p.previousLine(); XCTAssertEqual(p.position, 0)
-        p.adjustSpeed(by: 1000); XCTAssertEqual(p.wordsPerMinute, 400)
+        p.adjustSpeed(by: 1000); XCTAssertEqual(p.pointsPerSecond, 150)
     }
 }
 

@@ -194,8 +194,8 @@ struct PromptSection: View {
             if model.promptMode == .fixedSpeed {
                 HStack {
                     Text("Speed").font(.caption)
-                    Slider(value: Binding(get: { model.wordsPerMinute }, set: { model.setWordsPerMinute($0) }), in: 40...400, step: 5)
-                    Text("\(Int(model.wordsPerMinute)) wpm").font(.caption.monospacedDigit()).frame(width: 60)
+                    Slider(value: Binding(get: { model.scrollPointsPerSecond }, set: { model.setScrollSpeed($0) }), in: 5...150, step: 1)
+                    Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.caption.monospacedDigit()).frame(width: 60)
                 }
             }
             if model.promptMode == .manual {
@@ -209,16 +209,21 @@ struct PromptSection: View {
                 slider("Background", $model.settings.style.backgroundOpacity, 0.2...1, "%.0f%%", scale: 100)
                 slider("Active-line emphasis", $model.settings.style.activeLineEmphasis, 0...1, "%.0f%%", scale: 100)
                 slider("Edge margin", $model.settings.style.edgeInset, 0...200, "%.0f pt")
-                if model.settings.style.activeEdge == .bottom {
+                if model.promptMode == .speech {
+                    Text("The current line stays at the top, with upcoming lines below. Completed lines are hidden.")
+                        .foregroundStyle(.secondary)
+                } else if model.settings.style.activeEdge == .bottom {
                     Stepper("Upcoming lines below active line: \(model.settings.style.upcomingLinesBelow)",
                             value: $model.settings.style.upcomingLinesBelow, in: 0...3)
                 }
+                if model.promptMode != .speech {
                 Picker("Active line at", selection: $model.settings.style.activeEdge) {
                     Text("Top").tag(ActiveLineEdge.top)
                     Text("Center").tag(ActiveLineEdge.center)
                     Text("Bottom").tag(ActiveLineEdge.bottom)
                 }
                 .pickerStyle(.segmented)
+                }
             }
             .font(.caption)
         }

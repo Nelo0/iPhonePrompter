@@ -46,8 +46,10 @@ The app is not sandboxed (it's a personal build), so any folder you pick for rec
    - Use **Lock layout** to prevent accidental moves. Hide or fade the outline without moving the text.
    - Save named **presets**. They store the display, outline, lens position, prompt frame, typography and layout choice.
    - Press Esc to leave placement mode.
-6. **Prompt modes.** Choose *Follow my voice*, *Fixed speed* (words per minute) or *Manual*:
+6. **Prompt modes.** Choose *Follow my voice*, *Fixed speed* (screen points per second) or *Manual*:
    - The first time you use speech following, click **Enable English speech model** so macOS can install or reserve its on-device model.
+   - Voice following shows the current line at the top and upcoming text below it. Completed lines are hidden.
+   - Fixed speed scrolls at a constant visual rate in screen points per second, including across paragraph gaps and lines of different lengths.
    - The status dot shows Following, Listening, Not matching (holding), or Lost (click a phrase to resync). The Speech following section shows the latest recognized words under Heard while following is active; they are not saved. Both channels of a stereo wireless receiver feed recognition.
 7. **Test recording.** Make a short take, then use Play or Reveal in Finder. To check sync, do a clap test and adjust **Audio sync offset**. Positive values delay the audio relative to the video; the range is ±1000 ms in 10 ms steps, with Reset to 0.
 8. **Record.** Press **Record** (⇧⌘R):
@@ -66,7 +68,7 @@ Recordings go to `~/Movies/LensPrompt` by default (change it under Recording ›
 | Esc | Cancel the countdown; otherwise leave placement mode or reading mode. Never stops a take. |
 | ↑ / ↓ | Previous / next line (in speech mode this also resyncs from the new position) |
 | ← / → | Back / forward one word |
-| + / − | Fixed speed ±10 wpm |
+| + / − | Fixed scroll speed ±10 pt/s |
 | ⌘O | Open script |
 | ⇧⌘P / ⇧⌘E / ⇧⌘T | Placement mode / reading mode / show or hide the prompt panel |
 | ⌘1 / ⌘2 / ⌘3 | Follow my voice / fixed speed / manual |

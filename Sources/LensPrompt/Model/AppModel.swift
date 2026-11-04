@@ -83,7 +83,7 @@ final class AppModel {
     @ObservationIgnored private(set) var aligner = ScriptAligner(document: ScriptDocument(text: ""))
     var promptRunning = false
     var promptMode: PromptMode = .speech
-    var wordsPerMinute: Double = 140
+    var scrollPointsPerSecond: Double = 30
     var promptPositionCoarse = 0
     var trackingStatus: TrackingStatus = .idle
     var speechAvailability: SpeechAvailability = .unknown
@@ -114,9 +114,9 @@ final class AppModel {
         self.takes = TakeController(engine: engine, takes: store.loadTakes())
         self.presets = store.loadPresets()
         self.promptMode = loaded.promptMode
-        self.wordsPerMinute = loaded.wordsPerMinute
+        self.scrollPointsPerSecond = loaded.scrollPointsPerSecond
         prompt.mode = loaded.promptMode
-        prompt.wordsPerMinute = loaded.wordsPerMinute
+        prompt.pointsPerSecond = loaded.scrollPointsPerSecond
         let script = store.loadScript() ?? Self.sampleScript
         scriptText = script
         applyScript(position: loaded.scriptPosition)
@@ -544,13 +544,13 @@ final class AppModel {
         if wasRunning && mode != .manual { startTracking() }
     }
 
-    func setWordsPerMinute(_ wpm: Double) {
-        prompt.wordsPerMinute = wpm
-        wordsPerMinute = prompt.wordsPerMinute
-        settings.wordsPerMinute = wordsPerMinute
+    func setScrollSpeed(_ points: Double) {
+        prompt.pointsPerSecond = min(150, max(5, points))
+        scrollPointsPerSecond = prompt.pointsPerSecond
+        settings.scrollPointsPerSecond = scrollPointsPerSecond
     }
 
-    func adjustSpeed(_ delta: Double) { setWordsPerMinute(wordsPerMinute + delta) }
+    func adjustSpeed(_ delta: Double) { setScrollSpeed(scrollPointsPerSecond + delta) }
 
     func toggleTracking() { promptRunning ? pauseTracking() : startTracking() }
 
@@ -617,10 +617,11 @@ final class AppModel {
     /// Advances smoothing/fixed speed. Called from the prompt view's display link.
     func tickPrompt(dt: Double) -> Bool {
         let before = prompt.display
+        let beforeY = prompt.renderedY
         prompt.tick(dt: dt)
         if promptMode == .fixedSpeed && promptRunning && prompt.isAtEnd { promptRunning = false; prompt.isRunning = false }
         if prompt.position != promptPositionCoarse { promptPositionCoarse = prompt.position }
-        return prompt.display != before
+        return prompt.display != before || prompt.renderedY != beforeY
     }
 
     // MARK: Speech
