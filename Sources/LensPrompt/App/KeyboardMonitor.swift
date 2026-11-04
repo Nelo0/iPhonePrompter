@@ -23,6 +23,13 @@ final class KeyboardMonitor {
     /// Returns true if the event was consumed.
     private func handle(_ event: NSEvent) -> Bool {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.numericPad, .function, .capsLock])
+        if event.keyCode == 53, model.panels?.isDrawingOutline == true {
+            model.panels?.finishDrawingOutline(nil)
+            return true
+        }
+        // Sheets own their arrow, space and Escape keys. Browsing recordings or
+        // adjusting settings must not move/start the teleprompter behind the sheet.
+        if model.showRecordings || model.showStudioSettings { return false }
         // Escape: cancel countdown, else leave placement / reading mode. Never stops a take.
         if event.keyCode == 53 {
             if model.panels?.isDrawingOutline == true { model.panels?.finishDrawingOutline(nil); return true }

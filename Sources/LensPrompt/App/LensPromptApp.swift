@@ -7,7 +7,7 @@ struct LensPromptApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        Window("LensPrompt", id: "main") {
+        Window("iPhonePrompter", id: "main") {
             MainView(model: delegate.model)
                 .onAppear { delegate.installPanels() }
         }
@@ -18,9 +18,15 @@ struct LensPromptApp: App {
 
 struct LensPromptCommands: Commands {
     let model: AppModel
+    @Environment(\.openWindow) private var openWindow
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
+            Button("Recording studio") { openWindow(id: "main") }.keyboardShortcut("0")
+            Divider()
             Button("Open Script…") { model.openScript() }.keyboardShortcut("o")
+        }
+        CommandGroup(replacing: .appSettings) {
+            Button("Studio settings…") { model.showStudioSettings = true }.keyboardShortcut(",")
         }
         CommandMenu("Recording") {
             Button("Start/Stop Recording") { model.toggleRecording() }.keyboardShortcut("r", modifiers: [.command, .shift])
@@ -67,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let placement = ProcessInfo.processInfo.environment["LENSPROMPT_SNAPSHOT_PLACEMENT"] == "1"
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [model] in
                 if placement { model.placementMode = true }
-                NSApp.windows.first { $0.title == "LensPrompt" }?.setContentSize(NSSize(width: 1280, height: 760))
+                NSApp.windows.first { $0.title == "iPhonePrompter" }?.setContentSize(NSSize(width: 1280, height: 760))
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                     for (n, w) in NSApp.windows.enumerated() where w.isVisible {

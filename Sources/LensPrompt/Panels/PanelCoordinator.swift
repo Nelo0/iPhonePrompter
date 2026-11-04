@@ -34,7 +34,7 @@ final class PanelCoordinator: NSObject, NSWindowDelegate {
         super.init()
 
         let p = promptPanel
-        p.title = "LensPrompt Prompt"
+        p.title = "Teleprompter"
         p.titleVisibility = .hidden
         p.titlebarAppearsTransparent = true
         p.isFloatingPanel = true
@@ -51,7 +51,7 @@ final class PanelCoordinator: NSObject, NSWindowDelegate {
         p.setAccessibilityLabel("Teleprompter")
 
         let g = guideWindow
-        g.title = "LensPrompt Phone Guide"
+        g.title = "Phone placement"
         g.isOpaque = false
         g.backgroundColor = .clear
         g.hasShadow = false
@@ -272,7 +272,7 @@ struct PromptPanelContent: View {
     @Bindable var model: AppModel
     @State private var hovering = false
 
-    private var toolbarAtTop: Bool { model.settings.style.activeEdge != .top }
+    private var toolbarAtTop: Bool { model.promptMode != .speech && model.settings.style.activeEdge != .top }
 
     var body: some View {
         ZStack {
@@ -353,36 +353,54 @@ struct TrackingDot: View {
 
 struct PromptToolbar: View {
     @Bindable var model: AppModel
+    private var status: TrackingDot { TrackingDot(status: model.trackingStatus, running: model.promptRunning, mode: model.promptMode) }
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "line.3.horizontal").foregroundStyle(.white.opacity(0.7))
-                .padding(.horizontal, 2).contentShape(Rectangle()).gesture(WindowDragGesture())
-                .help("Drag to move the prompt")
+        HStack(spacing: 10) {
+            Image(systemName: "line.3.horizontal").foregroundStyle(StudioTheme.secondary)
+                .contentShape(Rectangle()).gesture(WindowDragGesture()).help("Drag to move the prompt")
             Button { model.toggleTracking() } label: { Image(systemName: model.promptRunning ? "pause.fill" : "play.fill") }
                 .help(model.promptRunning ? "Pause prompt (Space)" : "Start prompt (Space)")
+                .accessibilityLabel(model.promptRunning ? "Pause prompt" : "Start prompt")
                 .disabled(model.promptMode == .manual)
-            Button { model.resetToStart() } label: { Image(systemName: "backward.end.fill") }.help("Back to script start")
-            Button { model.previousLine() } label: { Image(systemName: "chevron.up") }.help("Previous line (↑)")
-            Button { model.nextLine() } label: { Image(systemName: "chevron.down") }.help("Next line (↓)")
+            Button { model.resetToStart() } label: { Image(systemName: "backward.end") }
+                .help("Back to script start").accessibilityLabel("Reset prompt")
             Menu {
-                ForEach(PromptMode.allCases, id: \.self) { m in
-                    Button { model.setPromptMode(m) } label: { if m == model.promptMode { Label(m.label, systemImage: "checkmark") } else { Text(m.label) } }
+                ForEach(PromptMode.allCases, id: \.self) { mode in
+                    Button { model.setPromptMode(mode) } label: {
+                        if mode == model.promptMode { Label(mode.label, systemImage: "checkmark") }
+                        else { Text(mode.label) }
+                    }
                 }
-            } label: { Image(systemName: "waveform") }.menuStyle(.borderlessButton).frame(width: 34).help("Prompt mode")
+            } label: { Image(systemName: "waveform") }
+            .menuStyle(.borderlessButton).frame(width: 24).help("Prompt mode")
             if model.promptMode == .fixedSpeed {
-                Button { model.adjustSpeed(-10) } label: { Image(systemName: "tortoise.fill") }.help("Slower")
-                Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.caption.monospacedDigit()).foregroundStyle(.white)
-                Button { model.adjustSpeed(10) } label: { Image(systemName: "hare.fill") }.help("Faster")
+                Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.system(size: 10, design: .monospaced)).foregroundStyle(StudioTheme.secondary)
             }
-            Button { model.settings.style.fontSize = max(14, model.settings.style.fontSize - 2) } label: { Image(systemName: "textformat.size.smaller") }.help("Smaller text")
-            Button { model.settings.style.fontSize = min(96, model.settings.style.fontSize + 2) } label: { Image(systemName: "textformat.size.larger") }.help("Larger text")
-            Button { model.readingMode = true } label: { Image(systemName: "eye") }.help("Reading mode (hide controls; Esc to exit)")
-            TrackingDot(status: model.trackingStatus, running: model.promptRunning, mode: model.promptMode)
+            Spacer(minLength: 0)
+            Menu {
+                Button("Previous line") { model.previousLine() }
+                Button("Next line") { model.nextLine() }
+                Divider()
+                Button("Larger text") { model.settings.style.fontSize = min(96, model.settings.style.fontSize + 2) }
+                Button("Smaller text") { model.settings.style.fontSize = max(14, model.settings.style.fontSize - 2) }
+                if model.promptMode == .fixedSpeed {
+                    Button("Scroll slower") { model.adjustSpeed(-10) }
+                    Button("Scroll faster") { model.adjustSpeed(10) }
+                }
+                Divider()
+                Button("Focus mode") { model.readingMode = true }
+                Button("Appearance…") { model.studioSettingsTab = .teleprompter; model.showStudioSettings = true }
+            } label: { Image(systemName: "slider.horizontal.3") }
+            .menuStyle(.borderlessButton).frame(width: 24).help("Prompt options")
+            Circle().fill(status.color).frame(width: 6, height: 6).help(status.label).accessibilityLabel(status.label)
         }
+        .font(.system(size: 12))
         .buttonStyle(.borderless)
-        .foregroundStyle(.white)
-        .padding(.horizontal, 8).padding(.vertical, 4)
-        .background(.black.opacity(0.75), in: Capsule())
+        .foregroundStyle(StudioTheme.text)
+        .tint(StudioTheme.secondary)
+        .padding(.horizontal, 10).padding(.vertical, 8)
+        .background(StudioTheme.surface.opacity(0.97), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(StudioTheme.border))
     }
 }
 

@@ -5,18 +5,66 @@ import LensPromptCore
 struct SidebarView: View {
     @Bindable var model: AppModel
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                CameraSection(model: model)
-                MicrophoneSection(model: model)
-                OutputSection(model: model)
-                PromptSection(model: model)
-                PlacementSection(model: model)
-                SpeechSection(model: model)
-            }
-            .padding(12)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "viewfinder").font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(StudioTheme.accent)
+                    .frame(width: 30, height: 30).background(StudioTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                Text("iPhonePrompter").font(.system(size: 14, weight: .semibold))
+                Spacer()
+            }.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 14)
+            VStack(spacing: 4) {
+                SidebarItem(title: "Recording studio", icon: "video", selected: !model.showRecordings) {}
+                SidebarItem(title: "Recordings", icon: "film.stack", selected: model.showRecordings) { model.openRecordings() }
+            }.padding(.horizontal, 10)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 6) {
+                    CameraSection(model: model)
+                    MicrophoneSection(model: model)
+                    sidebarHeading("Teleprompter").padding(.top, 8)
+                    PromptSection(model: model)
+                }.padding(.horizontal, 12).padding(.top, 14).padding(.bottom, 14)
+            }.scrollIndicators(.hidden)
+            VStack(alignment: .leading, spacing: 4) {
+                sidebarHeading("Setup").padding(.top, 8)
+                SidebarItem(title: "Phone placement", icon: "iphone.gen3.landscape", selected: false) { settings(.placement) }
+                SidebarItem(title: "Studio settings", icon: "slider.horizontal.3", selected: false) { settings(.teleprompter) }
+            }.padding(.horizontal, 12).padding(.bottom, 10)
+            Divider().overlay(StudioTheme.border)
+            HStack(spacing: 7) {
+                Image(systemName: "lock.shield").font(.system(size: 11))
+                Text("Private. On your Mac.").font(.system(size: 11))
+                Spacer()
+                Text("0.1").font(.system(size: 10, design: .monospaced))
+            }.foregroundStyle(StudioTheme.secondary).padding(.horizontal, 16).padding(.vertical, 12)
         }
-        .background(Color(white: 0.08))
+        .background(StudioTheme.sidebar)
+    }
+    private func settings(_ tab: StudioSettingsTab) { model.studioSettingsTab = tab; model.showStudioSettings = true }
+    private func sidebarHeading(_ title: String) -> some View {
+        Text(title).font(.system(size: 10, weight: .medium)).tracking(1.1)
+            .textCase(.uppercase).foregroundStyle(StudioTheme.secondary).padding(.horizontal, 8).padding(.bottom, 3)
+    }
+}
+
+struct SidebarItem: View {
+    let title: String
+    let icon: String
+    var selected = false
+    let action: () -> Void
+    @State private var hovering = false
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 9) {
+                Image(systemName: icon).font(.system(size: 13)).frame(width: 18)
+                Text(title).font(.system(size: 12, weight: selected ? .medium : .regular))
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(selected ? StudioTheme.text : StudioTheme.secondary)
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(Color.white.opacity(selected ? 0.065 : hovering ? 0.035 : 0), in: RoundedRectangle(cornerRadius: 6))
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain).onHover { hovering = $0 }
     }
 }
 
@@ -25,79 +73,61 @@ struct SectionBox<Content: View>: View {
     let systemImage: String
     @ViewBuilder var content: Content
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label(title, systemImage: systemImage).font(.headline)
+        VStack(alignment: .leading, spacing: 7) {
+            Label(title, systemImage: systemImage)
+                .font(.system(size: 11, weight: .medium)).foregroundStyle(StudioTheme.secondary)
             content
         }
-        .padding(10)
+        .padding(.horizontal, 8).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(white: 0.13), in: RoundedRectangle(cornerRadius: 8))
     }
 }
-
-// MARK: Camera
 
 struct CameraSection: View {
     @Bindable var model: AppModel
     var body: some View {
-        SectionBox(title: "Camera", systemImage: "camera") {
-            Picker("Camera", selection: Binding(get: { model.settings.cameraID ?? "" }, set: { model.selectCamera($0.isEmpty ? nil : $0) })) {
-                Text("None").tag("")
-                ForEach(model.cameras) { c in
-                    Text(c.isContinuityCamera ? "\(c.name) (iPhone)" : c.name).tag(c.id)
-                }
-                if model.selectedCameraMissing, let id = model.settings.cameraID {
-                    Text("\(model.settings.cameraName ?? "Saved camera") — not connected").tag(id)
-                }
+        SectionBox(title: "Camera", systemImage: "video") {
+            HStack(spacing: 5) {
+                Picker("Camera", selection: Binding(get: { model.settings.cameraID ?? "" }, set: { model.selectCamera($0.isEmpty ? nil : $0) })) {
+                    Text("Select camera").tag("")
+                    ForEach(model.cameras) { c in Text(c.name).tag(c.id) }
+                    if model.selectedCameraMissing, let id = model.settings.cameraID {
+                        Text("\(model.settings.cameraName ?? "Camera") · offline").tag(id)
+                    }
+                }.labelsHidden().disabled(model.inputsLocked || model.captureDisabled)
+                Menu {
+                    Button("Refresh devices") { model.refreshDevices() }
+                    Button("Reconnect camera") { model.reconnect() }
+                    Divider()
+                    Text("Continuity Camera selects the iPhone lens.")
+                } label: { Image(systemName: "ellipsis") }
+                .menuStyle(.borderlessButton).frame(width: 18)
+                .disabled(model.inputsLocked || model.captureDisabled).help("Camera options")
             }
-            .labelsHidden()
-            .disabled(model.inputsLocked || model.captureDisabled)
-            HStack(spacing: 6) {
-                Circle().fill(model.cameraHealth.isLive ? Color.green : Color.orange).frame(width: 8, height: 8)
-                Text(model.cameraHealth.label).font(.caption).lineLimit(2)
-            }
-            LabeledContent("Format", value: model.videoFormatText).font(.caption)
+            HStack(spacing: 5) {
+                Circle().fill(model.cameraHealth.isLive ? Color.green.opacity(0.8) : Color.orange).frame(width: 5, height: 5)
+                Text(model.cameraHealth.isLive ? "Connected" : model.cameraHealth.label).lineLimit(2)
+                Spacer(minLength: 2)
+                if model.cameraHealth.isLive { Text(model.videoFormatText.replacingOccurrences(of: " @ ", with: " · ")).lineLimit(1).minimumScaleFactor(0.8) }
+            }.font(.system(size: 10)).foregroundStyle(StudioTheme.secondary)
             if let note = model.formatNote { Text(note).font(.caption2).foregroundStyle(.orange) }
-            if model.inputsLocked { Text("Inputs are locked while a take is in progress.").font(.caption2).foregroundStyle(.secondary) }
-            HStack {
-                Button("Refresh") { model.refreshDevices() }.disabled(model.inputsLocked || model.captureDisabled)
-                Button("Reconnect") { model.reconnect() }.disabled(model.inputsLocked || model.captureDisabled)
-            }
-            .controlSize(.small)
-            Toggle("Show framing grid", isOn: $model.settings.showFramingGuides)
-                .toggleStyle(.checkbox)
-                .help("Rule-of-thirds grid for framing. Visible in the preview only; saved video stays clean.")
-            Text("Grid appears in the preview only, not in recordings.")
-                .font(.caption2).foregroundStyle(.secondary)
-            if !model.cameras.contains(where: \.isContinuityCamera) && !model.captureDisabled {
-                Text("No iPhone found. Continuity Camera needs the iPhone nearby, on the same Apple Account, with Wi-Fi and Bluetooth on, or connected by USB.")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            Text("Continuity Camera chooses the iPhone lens; LensPrompt cannot select individual lenses.")
-                .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
-
-// MARK: Microphone
 
 struct LevelMeter: View {
     let meter: LevelMeterModel
     var body: some View {
         GeometryReader { geo in
-            let w = geo.size.width
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3).fill(Color(white: 0.2))
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(LinearGradient(colors: [.green, .green, .yellow, .red], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: w * LevelMeterModel.fraction(meter.rmsDB))
-                Rectangle().fill(.white).frame(width: 2)
-                    .offset(x: max(0, w * LevelMeterModel.fraction(meter.heldPeakDB) - 2))
+                Capsule().fill(Color.white.opacity(0.07))
+                Capsule().fill(meter.clipping ? Color.red : Color.green.opacity(0.7))
+                    .frame(width: geo.size.width * LevelMeterModel.fraction(meter.rmsDB))
+                Rectangle().fill(Color.white.opacity(0.7)).frame(width: 1)
+                    .offset(x: max(0, geo.size.width * LevelMeterModel.fraction(meter.heldPeakDB) - 1))
             }
-        }
-        .frame(height: 10)
-        .accessibilityLabel("Microphone level")
-        .accessibilityValue("\(Int(meter.rmsDB)) decibels")
+        }.frame(height: 4)
+        .accessibilityLabel("Microphone level").accessibilityValue("\(Int(meter.rmsDB)) decibels")
     }
 }
 
@@ -106,36 +136,23 @@ struct MicrophoneSection: View {
     var body: some View {
         SectionBox(title: "Microphone", systemImage: "mic") {
             Picker("Microphone", selection: Binding(get: { model.settings.microphoneID ?? "" }, set: { model.selectMicrophone($0.isEmpty ? nil : $0) })) {
-                Text("None").tag("")
-                ForEach(model.microphones) { m in Text(m.name).tag(m.id) }
+                Text("Select microphone").tag("")
+                ForEach(model.microphones) { Text($0.name).tag($0.id) }
                 if model.selectedMicrophoneMissing, let id = model.settings.microphoneID {
-                    Text("\(model.settings.microphoneName ?? "Saved microphone") — not connected").tag(id)
+                    Text("\(model.settings.microphoneName ?? "Microphone") · offline").tag(id)
                 }
-            }
-            .labelsHidden()
-            .disabled(model.inputsLocked || model.captureDisabled)
-            Text("Input format: \(model.micFormatText)").font(.caption).foregroundStyle(.secondary)
+            }.labelsHidden().disabled(model.inputsLocked || model.captureDisabled)
             LevelMeter(meter: model.meter)
             HStack {
-                Text(String(format: "RMS %.0f dB · peak %.0f dB", model.meter.rmsDB, model.meter.heldPeakDB))
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                Text(model.micFormatText)
                 Spacer()
-                if model.meter.clipping { Text("CLIPPING").font(.caption.bold()).foregroundStyle(.red) }
+                Text(model.meter.clipping ? "Clipping" : String(format: "%.0f dB", model.meter.heldPeakDB))
+                    .foregroundStyle(model.meter.clipping ? Color.red : StudioTheme.secondary)
+            }.font(.system(size: 10, design: .monospaced)).foregroundStyle(StudioTheme.secondary)
+            if model.selectedMicrophoneMissing || model.micHealth == .noInput {
+                Text(model.selectedMicrophoneMissing ? "Microphone disconnected" : "Waiting for microphone audio")
+                    .font(.system(size: 10)).foregroundStyle(.orange)
             }
-            Group {
-                if model.selectedMicrophoneMissing {
-                    Text("\(model.settings.microphoneName ?? "The selected microphone") is not connected. LensPrompt will not substitute another microphone — reconnect it or choose one above.")
-                        .foregroundStyle(.orange)
-                } else {
-                    switch model.micHealth {
-                    case .noInput: Text(model.settings.microphoneID == nil ? "Select the microphone to record with." : "No audio is arriving from this microphone.").foregroundStyle(.orange)
-                    case .silent: Text("Signal is near silence — check the mic is on and not muted.").foregroundStyle(.yellow)
-                    case .ok: Text("Receiving microphone audio").foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .font(.caption).fixedSize(horizontal: false, vertical: true)
-            Text("The same microphone feeds the recording and speech following.").font(.caption2).foregroundStyle(.secondary)
         }
     }
 }
@@ -178,63 +195,73 @@ struct OutputSection: View {
 struct PromptSection: View {
     @Bindable var model: AppModel
     var body: some View {
-        SectionBox(title: "Prompt", systemImage: "text.alignleft") {
-            Picker("Mode", selection: Binding(get: { model.promptMode }, set: { model.setPromptMode($0) })) {
-                ForEach(PromptMode.allCases, id: \.self) { Text($0.label).tag($0) }
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Prompt mode", selection: Binding(get: { model.promptMode }, set: { model.setPromptMode($0) })) {
+                Text("Voice").tag(PromptMode.speech)
+                Text("Fixed").tag(PromptMode.fixedSpeed)
+                Text("Manual").tag(PromptMode.manual)
+            }.pickerStyle(.segmented).labelsHidden()
+            HStack(spacing: 8) {
+                Button { model.toggleTracking() } label: {
+                    Label(model.promptRunning ? "Pause" : "Start prompt", systemImage: model.promptRunning ? "pause.fill" : "play.fill")
+                        .frame(maxWidth: .infinity)
+                }.buttonStyle(StudioButtonStyle()).disabled(model.promptMode == .manual)
+                Button { model.resetToStart() } label: { Image(systemName: "arrow.counterclockwise") }
+                    .buttonStyle(StudioButtonStyle()).help("Back to script start").accessibilityLabel("Reset prompt")
             }
-            .pickerStyle(.segmented).labelsHidden()
-            HStack {
-                Button(model.promptRunning ? "Pause" : "Start") { model.toggleTracking() }
-                    .disabled(model.promptMode == .manual)
-                Button("Back to Start") { model.resetToStart() }
-                Spacer()
-                TrackingDot(status: model.trackingStatus, running: model.promptRunning, mode: model.promptMode)
-            }
-            .controlSize(.small)
+            TrackingDot(status: model.trackingStatus, running: model.promptRunning, mode: model.promptMode)
             if model.promptMode == .fixedSpeed {
                 HStack {
-                    Text("Speed").font(.caption)
                     Slider(value: Binding(get: { model.scrollPointsPerSecond }, set: { model.setScrollSpeed($0) }), in: 5...150, step: 1)
-                    Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.caption.monospacedDigit()).frame(width: 60)
+                    Text("\(Int(model.scrollPointsPerSecond)) pt/s").font(.system(size: 10, design: .monospaced)).frame(width: 48)
                 }
             }
-            if model.promptMode == .manual {
-                Text("Use ↑/↓ or the scroll wheel over the prompt to move line by line.").font(.caption2).foregroundStyle(.secondary)
-            }
-            Toggle("Show prompt panel", isOn: $model.settings.promptVisible)
-            Toggle("Reading mode (hide prompt controls)", isOn: $model.readingMode)
-            DisclosureGroup("Appearance") {
-                slider("Text size", $model.settings.style.fontSize, 14...96, "%.0f pt")
-                slider("Line spacing", $model.settings.style.lineSpacing, 0...40, "%.0f pt")
-                slider("Background", $model.settings.style.backgroundOpacity, 0.2...1, "%.0f%%", scale: 100)
-                slider("Active-line emphasis", $model.settings.style.activeLineEmphasis, 0...1, "%.0f%%", scale: 100)
-                slider("Edge margin", $model.settings.style.edgeInset, 0...200, "%.0f pt")
-                if model.promptMode == .speech {
-                    Text("The current line stays at the top, with upcoming lines below. Completed lines are hidden.")
-                        .foregroundStyle(.secondary)
-                } else if model.settings.style.activeEdge == .bottom {
-                    Stepper("Upcoming lines below active line: \(model.settings.style.upcomingLinesBelow)",
-                            value: $model.settings.style.upcomingLinesBelow, in: 0...3)
+            Toggle("Floating prompt", isOn: $model.settings.promptVisible)
+            Toggle("Focus mode", isOn: $model.readingMode).help("Hide floating prompt controls while reading")
+            if model.promptMode == .speech && model.speechAvailability != .ready {
+                Text(model.speechAvailability.label).font(.system(size: 10)).foregroundStyle(.orange)
+                if model.speechAvailability == .needsDownload {
+                    Button("Enable voice following") { model.downloadSpeechModel() }.buttonStyle(StudioButtonStyle())
                 }
-                if model.promptMode != .speech {
-                Picker("Active line at", selection: $model.settings.style.activeEdge) {
+            }
+            if model.promptRunning && model.promptMode == .speech && !model.lastHeardText.isEmpty {
+                Text(model.lastHeardText).font(.system(size: 11)).foregroundStyle(StudioTheme.secondary)
+                    .lineLimit(3).help("Most recently recognized words")
+            }
+        }.font(.system(size: 11)).toggleStyle(.switch).controlSize(.mini).padding(.horizontal, 8).padding(.vertical, 8)
+    }
+}
+
+struct PromptAppearanceSettings: View {
+    @Bindable var model: AppModel
+    var body: some View {
+        SectionBox(title: "Text & appearance", systemImage: "textformat") {
+            slider("Text size", $model.settings.style.fontSize, 14...96, "%.0f pt")
+            slider("Line spacing", $model.settings.style.lineSpacing, 0...40, "%.0f pt")
+            slider("Background", $model.settings.style.backgroundOpacity, 0.2...1, "%.0f%%", scale: 100)
+            slider("Line emphasis", $model.settings.style.activeLineEmphasis, 0...1, "%.0f%%", scale: 100)
+            slider("Edge margin", $model.settings.style.edgeInset, 0...200, "%.0f pt")
+            if model.promptMode == .speech {
+                Text("Your current line stays at the top. Upcoming text appears below.").font(.caption).foregroundStyle(StudioTheme.secondary)
+            } else {
+                Picker("Active line", selection: $model.settings.style.activeEdge) {
                     Text("Top").tag(ActiveLineEdge.top)
                     Text("Center").tag(ActiveLineEdge.center)
                     Text("Bottom").tag(ActiveLineEdge.bottom)
-                }
-                .pickerStyle(.segmented)
+                }.pickerStyle(.segmented)
+                if model.settings.style.activeEdge == .bottom {
+                    Stepper("Upcoming lines: \(model.settings.style.upcomingLinesBelow)", value: $model.settings.style.upcomingLinesBelow, in: 0...3)
                 }
             }
-            .font(.caption)
         }
     }
-
-    func slider(_ title: String, _ value: Binding<Double>, _ range: ClosedRange<Double>, _ fmt: String, scale: Double = 1) -> some View {
-        HStack {
-            Text(title).frame(width: 120, alignment: .leading)
+    private func slider(_ title: String, _ value: Binding<Double>, _ range: ClosedRange<Double>, _ format: String, scale: Double = 1) -> some View {
+        HStack(spacing: 16) {
+            Text(title).font(.system(size: 12)).frame(width: 100, alignment: .leading)
             Slider(value: value, in: range)
-            Text(String(format: fmt, value.wrappedValue * scale)).monospacedDigit().frame(width: 48, alignment: .trailing)
-        }
+            Text(String(format: format, value.wrappedValue * scale)).font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(StudioTheme.secondary).frame(width: 48, alignment: .trailing)
+        }.padding(.vertical, 4)
     }
 }
 
@@ -323,7 +350,7 @@ struct PlacementSection: View {
                     Button { model.deletePreset(p) } label: { Image(systemName: "trash") }.buttonStyle(.borderless).help("Delete preset")
                 }
             }
-            Text("The outline shows where to put the real phone; it is approximate and does not detect the phone. Near-lens text reduces, but cannot eliminate, gaze offset.")
+            Text("Use the outline to restore your phone position. Align the lens marker, then place the text beside it.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -350,7 +377,7 @@ struct SpeechSection: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Speech recognition: \(model.lastHeardText.isEmpty ? "waiting for words" : model.lastHeardText)")
             }
-            Text("Recognition runs on this Mac (Apple SpeechAnalyzer). Audio and scripts are not uploaded, and transcripts are not stored.")
+            Text("Voice recognition runs locally. Audio and scripts stay on this Mac.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }

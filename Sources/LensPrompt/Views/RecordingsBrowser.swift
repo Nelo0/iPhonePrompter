@@ -5,6 +5,7 @@ import LensPromptCore
 struct RecordingsBrowser: View {
     @Bindable var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var libraryFocused: Bool
     @State private var search = ""
     @State private var oldestFirst = false
     @State private var selection: UUID?
@@ -26,8 +27,8 @@ struct RecordingsBrowser: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Recordings").font(.title2.bold())
-                Text("\(model.takes.takes.count) saved files").foregroundStyle(.secondary)
+                Text("Recordings").font(.system(size: 20, weight: .semibold))
+                Text("\(model.takes.takes.count) saved").font(.system(size: 11)).foregroundStyle(StudioTheme.secondary)
                 Spacer()
                 if model.libraryRefreshing { ProgressView().controlSize(.small) }
                 Button("Refresh", systemImage: "arrow.clockwise") { model.refreshRecordings() }
@@ -35,7 +36,7 @@ struct RecordingsBrowser: View {
                 Button("Open Folder", systemImage: "folder") { NSWorkspace.shared.open(model.outputFolder) }
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
-            .padding()
+            .padding(24)
             if let error = model.libraryError {
                 HStack {
                     Label(error, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
@@ -52,12 +53,14 @@ struct RecordingsBrowser: View {
                             .accessibilityLabel("Search recordings")
                         Toggle("Oldest first", isOn: $oldestFirst).toggleStyle(.checkbox).font(.caption)
                     }.padding(10)
-                    List(selection: $selection) {
+                    ScrollView {
+                        LazyVStack(spacing: 4) {
                         ForEach(recordings) { take in
+                            Button { selection = take.id; libraryFocused = true } label: {
                             HStack(spacing: 10) {
                                 RecordingThumbnail(url: take.fileURL)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(take.fileName).font(.callout).lineLimit(2)
+                                    Text(take.fileName).font(.system(size: 12, weight: .medium)).lineLimit(2)
                                     Text("\(formatDuration(take.duration)) · \(take.createdAt.formatted(date: .abbreviated, time: .shortened))")
                                         .font(.caption).foregroundStyle(.secondary)
                                     if !exists(take) {
@@ -68,8 +71,13 @@ struct RecordingsBrowser: View {
                                     }
                                 }
                             }
-                            .padding(.vertical, 4)
-                            .tag(take.id)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(selection == take.id ? StudioTheme.raised : .clear, in: RoundedRectangle(cornerRadius: 7))
+                            .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityValue(selection == take.id ? "Selected" : "")
                             .contextMenu {
                                 Button("Reveal in Finder") { reveal(take) }.disabled(!exists(take))
                                 Button("Rename…") { beginRename(take) }.disabled(model.inputsLocked || !exists(take))
@@ -77,6 +85,14 @@ struct RecordingsBrowser: View {
                                     .disabled(model.inputsLocked || !exists(take))
                             }
                         }
+                        }.padding(10)
+                    }
+                    .focusable().focusEffectDisabled().focused($libraryFocused)
+                    .onMoveCommand { direction in
+                        guard !recordings.isEmpty, direction == .up || direction == .down else { return }
+                        let current = recordings.firstIndex { $0.id == selection } ?? 0
+                        let index = min(recordings.count - 1, max(0, current + (direction == .down ? 1 : -1)))
+                        selection = recordings[index].id
                     }
                     .overlay {
                         if recordings.isEmpty {
@@ -86,6 +102,8 @@ struct RecordingsBrowser: View {
                                     : "Try a different file name."))
                         }
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(StudioTheme.sidebar)
                     .onDeleteCommand {
                         if let take = selected, exists(take), !model.inputsLocked { requestTrash(take) }
                     }
@@ -103,19 +121,19 @@ struct RecordingsBrowser: View {
                         }
                         .frame(minHeight: 200)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
-                        Text(take.fileName).font(.headline).textSelection(.enabled)
+                        Text(take.fileName).font(.system(size: 14, weight: .medium)).textSelection(.enabled)
                         Text("\(formatDuration(take.duration)) · \(fileSize(take)) · \(statusText(take))")
                             .font(.caption).foregroundStyle(.secondary)
-                        Text(take.fileURL.path).font(.caption).foregroundStyle(.secondary)
-                            .textSelection(.enabled).lineLimit(2).truncationMode(.middle)
+                        Label(take.fileURL.deletingLastPathComponent().lastPathComponent, systemImage: "folder")
+                            .font(.caption).foregroundStyle(StudioTheme.secondary).help(take.fileURL.path)
                         if let format = take.videoFormat { Text(format).font(.caption).foregroundStyle(.secondary) }
                         HStack {
-                            Button("Reveal in Finder", systemImage: "folder") { reveal(take) }.disabled(!exists(take))
+                            Button("Reveal", systemImage: "folder") { reveal(take) }.help("Reveal in Finder").disabled(!exists(take))
                             Button("Rename…", systemImage: "pencil") { beginRename(take) }
                                 .disabled(model.inputsLocked || !exists(take))
                             Spacer()
                             if exists(take) {
-                                Button("Move to Trash…", systemImage: "trash", role: .destructive) { requestTrash(take) }
+                                Button("Trash…", systemImage: "trash", role: .destructive) { requestTrash(take) }
                                     .disabled(model.inputsLocked)
                             } else {
                                 Button("Remove Missing Entry") { model.removeTakeFromList(take) }
@@ -132,16 +150,23 @@ struct RecordingsBrowser: View {
                             description: Text("Preview, scrub, rename, or move previous takes to Trash."))
                     }
                 }
-                .padding(14)
+                .padding(24)
                 .frame(minWidth: 380, maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .frame(minWidth: 820, idealWidth: 1020, minHeight: 500, idealHeight: 620)
+        .font(.system(size: 12))
+        .foregroundStyle(StudioTheme.text)
+        .background(StudioTheme.workspace)
+        .tint(StudioTheme.accent)
+        .buttonStyle(StudioButtonStyle())
+        .controlSize(.small)
         .preferredColorScheme(.dark)
         .onChange(of: recordings.map(\.id), initial: true) { _, ids in
             if selection == nil || !ids.contains(selection!) { selection = ids.first }
         }
         .task(id: selected?.fileURL) { await loadPreview() }
+        .onAppear { libraryFocused = true }
         .onDisappear { player.pause(); player.replaceCurrentItem(with: nil) }
         .alert("Rename recording", isPresented: $renaming) {
             TextField("File name", text: $newName)
@@ -156,9 +181,9 @@ struct RecordingsBrowser: View {
         .confirmationDialog("Move recording to Trash?", isPresented: $confirmTrash, titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) {
                 if let take = trashCandidate {
-                    player.pause()
-                    player.replaceCurrentItem(with: nil)
-                    if !model.trashRecording(take) { Task { await loadPreview() } }
+                    let wasSelected = selected?.id == take.id
+                    if wasSelected { player.pause(); player.replaceCurrentItem(with: nil) }
+                    if !model.trashRecording(take), wasSelected { Task { await loadPreview() } }
                 }
                 trashCandidate = nil
             }

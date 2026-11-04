@@ -1,11 +1,13 @@
 # iPhonePrompter
 
-iPhonePrompter is a native macOS teleprompter and recorder. The app and build targets are currently named LensPrompt. It replaces a browser teleprompter plus Photo Booth in this setup: an iPhone sits landscape on a tripod in front of the Mac display, its rear camera facing you.
+iPhonePrompter is a native macOS teleprompter and recorder. The app is named iPhonePrompter; internal build targets and the bundle directory remain LensPrompt for compatibility. It replaces a browser teleprompter plus Photo Booth in this setup: an iPhone sits landscape on a tripod in front of the Mac display, its rear camera facing you.
 
 - **Live preview** of the iPhone camera, received through Continuity Camera (wireless or USB, whichever macOS uses).
 - **Recording** of camera video plus the microphone you choose (for example a Bluetooth mic) to `.mov` files (H.264 + AAC) on your Mac.
 - **A floating prompt panel** whose active line sits right next to the phone's lens, plus a **phone outline and lens target** so you can line it up with the real phone.
 - **Speech following** on the Mac (Apple SpeechAnalyzer), plus **fixed-speed** and **manual** modes.
+
+The studio uses a compact sidebar for capture and prompt controls, with advanced controls in Studio settings. Wide windows show the script and camera side by side; smaller windows stack them.
 
 There is no iPhone app, no cloud service, no account and no analytics.
 
@@ -36,9 +38,9 @@ The app is not sandboxed (it's a personal build), so any folder you pick for rec
 1. **Permissions.** On first launch, allow Camera and Microphone. If you deny either one, a banner links to System Settings.
 2. **Devices.** In the sidebar, pick the iPhone under **Camera** and your external mic under **Microphone**. Each shows its connection state, the actual video format (1920×1080 at 30 fps when the camera offers it, otherwise the closest format, clearly labelled), the mic's input format, and a level meter with clipping and silence warnings.
    - If a saved device goes missing, it shows as "not connected". LensPrompt never switches to a different microphone or camera on its own.
-3. **Framing.** Use the preview to frame yourself. Turn on **Show framing grid** in the Camera section, or **Framing grid** on the preview, for rule-of-thirds lines. The grid follows the fitted video area, stays visible against light and dark backgrounds, and never appears in recordings. Its setting is remembered after relaunch. "Mirror preview" only mirrors the preview; the recording is never mirrored. "Show preview" off hides the preview, but capture and recording keep running.
+3. **Framing.** Use the preview to frame yourself. Turn on **Grid** in the camera preview for rule-of-thirds lines. The grid follows the fitted video area, stays visible against light and dark backgrounds, and never appears in recordings. Its setting is remembered after relaunch. **Mirror** only mirrors the preview; the recording is never mirrored. The studio options menu next to Record contains **Show camera preview**; hiding the preview does not stop capture or recording.
 4. **Script.** Paste into the editor, or use File › Open Script… (⌘O) for UTF-8 text or Markdown. Markdown is shown as plain text. The script autosaves.
-5. **Placement.** Turn on **Placement mode** (⇧⌘P):
+5. **Placement.** Open **Phone placement** in the sidebar, or **Studio settings › Phone placement**, then turn on **Placement mode** (⇧⌘P):
    - Size the outline to the real phone. Either click **Draw phone outline…** and drag a box on the screen exactly where the iPhone covers it (Esc cancels), or drag any of the four orange corners. The sidebar also has Width/Height controls in points and a reset to the iPhone 15 Pro Max estimate. Drag the middle of the outline to move it.
    - Match the camera position. The default is the camera cluster at the top right. **Rotate 180°** (on the outline or in the sidebar) moves the camera to the opposite corner for a phone mounted the other way up. **Flip sides** moves it to the other end. Then drag the green target onto the real lens.
    - Set the text box size with the Width/Height controls under **Text box size**, or drag the prompt panel's edges. Resizing keeps the edge nearest the phone fixed.
@@ -46,20 +48,22 @@ The app is not sandboxed (it's a personal build), so any folder you pick for rec
    - Use **Lock layout** to prevent accidental moves. Hide or fade the outline without moving the text.
    - Save named **presets**. They store the display, outline, lens position, prompt frame, typography and layout choice.
    - Press Esc to leave placement mode.
-6. **Prompt modes.** Choose *Follow my voice*, *Fixed speed* (screen points per second) or *Manual*:
+6. **Prompt modes.** Use **Voice**, **Fixed**, or **Manual** in the sidebar. Voice follows speech; Fixed uses a constant visual speed in screen points per second:
    - The first time you use speech following, click **Enable English speech model** so macOS can install or reserve its on-device model.
    - Voice following shows the current line at the top and upcoming text below it. Completed lines are hidden.
    - Fixed speed scrolls at a constant visual rate in screen points per second, including across paragraph gaps and lines of different lengths.
    - The status dot shows Following, Listening, Not matching (holding), or Lost (click a phrase to resync). The Speech following section shows the latest recognized words under Heard while following is active; they are not saved. Both channels of a stereo wireless receiver feed recognition.
-7. **Test recording.** Make a short take, then use Play or Reveal in Finder. To check sync, do a clap test and adjust **Audio sync offset**. Positive values delay the audio relative to the video; the range is ±1000 ms in 10 ms steps, with Reset to 0.
+7. **Test recording.** Make a short take, then use Play or Reveal in Finder. To check sync, do a clap test and adjust **Audio sync offset** under **Studio settings › Recording**. Positive values delay the audio relative to the video; the range is ±1000 ms in 10 ms steps, with Reset to 0.
 8. **Record.** Press **Record** (⇧⌘R):
-   - With the optional 3-second countdown on, the countdown starts only after the camera, mic, folder and disk space have been checked and the writer is ready.
+   - With the optional **3-second countdown** enabled in the studio options menu next to Record, the countdown starts only after the camera, mic, folder and disk space have been checked and the writer is ready.
    - "Recording" appears only once the movie file has actually started. Script tracking starts with the take.
-9. **Stop.** The file is finalized with a unique name (`LensPrompt 2026-11-04 at 10.15.30.mov`, then ` 2`, ` 3`…). Existing files are never overwritten. Use Play, Reveal in Finder, or Another Take. Resetting or editing the script never deletes takes, and "Remove from List" never deletes files.
+9. **Stop.** The file is finalized with a unique name (`LensPrompt 2026-11-04 at 10.15.30.mov`, then ` 2`, ` 3`…). Existing files are never overwritten. Use Preview, the folder button, or Another Take. Resetting or editing the script never deletes takes, and missing library entries can be removed without touching files.
 
 Recordings go to `~/Movies/LensPrompt` by default (change it under Recording › Choose Folder…). Settings, the current script, presets and the take list are stored in `~/Library/Application Support/LensPrompt`; no audio or transcripts are stored.
 
-### Keyboard shortcuts (only while LensPrompt is active; not system-wide)
+Open **Studio settings** in the sidebar or press Command-comma for text appearance, voice details, phone calibration, output location and audio synchronization. The main sidebar keeps camera, microphone and prompt controls close at hand.
+
+### Keyboard shortcuts (only while iPhonePrompter is active; not system-wide)
 
 | Key | Action |
 | --- | --- |
@@ -70,11 +74,13 @@ Recordings go to `~/Movies/LensPrompt` by default (change it under Recording ›
 | ← / → | Back / forward one word |
 | + / − | Fixed scroll speed ±10 pt/s |
 | ⌘O | Open script |
+| ⌘0 | Open or focus the recording studio |
+| ⌘, | Studio settings |
 | ⇧⌘P / ⇧⌘E / ⇧⌘T | Placement mode / reading mode / show or hide the prompt panel |
 | ⌘1 / ⌘2 / ⌘3 | Follow my voice / fixed speed / manual |
 | ⌘Home | Back to script start |
 
-Click any phrase in the prompt to resume from there. The scroll wheel over the prompt moves line by line. Prompt shortcuts don't work while the script editor has focus; click the preview or the prompt first.
+Click any phrase in the prompt to resume from there. The scroll wheel over the prompt moves line by line. Prompt shortcuts don't work while the script editor, recordings browser, or settings sheet has focus; click the preview or the prompt first.
 
 Pausing the prompt never pauses the recording. Recording is a continuous start/stop.
 

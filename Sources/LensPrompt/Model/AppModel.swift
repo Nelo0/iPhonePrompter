@@ -68,6 +68,8 @@ final class AppModel {
     var micFormatText = "—"
     var banner: Banner?
     var showRecordings = false
+    var showStudioSettings = false
+    var studioSettingsTab: StudioSettingsTab = .teleprompter
     var libraryRefreshing = false
     var libraryError: String?
     var recordingSizes: [URL: Int64] = [:]

@@ -8,25 +8,54 @@ struct MainView: View {
     var body: some View {
         HSplitView {
             SidebarView(model: model)
-                .frame(minWidth: 280, idealWidth: 320, maxWidth: 420)
+                .frame(minWidth: 240, idealWidth: 260, maxWidth: 280)
             VStack(spacing: 0) {
                 if let banner = model.banner { BannerView(model: model, banner: banner) }
                 RecordingBar(model: model)
                 Divider()
-                VSplitView {
-                    if !model.settings.previewHidden {
-                        PreviewPane(model: model).frame(minHeight: 160, idealHeight: 340)
+                GeometryReader { geometry in
+                    if !model.settings.previewHidden && geometry.size.width >= 900 {
+                        HSplitView {
+                            ScriptEditorPane(model: model).frame(minWidth: 360, idealWidth: 520)
+                            VStack(spacing: 14) {
+                                HStack {
+                                    Text("Camera preview").font(.system(size: 12, weight: .medium))
+                                    Spacer()
+                                    Text(model.videoFormatText).font(.system(size: 10, design: .monospaced)).foregroundStyle(StudioTheme.secondary)
+                                }
+                                let preview = PreviewPane(model: model)
+                                preview.aspectRatio(preview.videoAspect, contentMode: .fit)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(24)
+                            .frame(minWidth: 360, idealWidth: 520, maxHeight: .infinity, alignment: .top)
+                        }
+                    } else {
+                        VSplitView {
+                            if !model.settings.previewHidden {
+                                PreviewPane(model: model).frame(minHeight: 180, idealHeight: 300)
+                                    .padding(.horizontal, 24).padding(.vertical, 18)
+                            }
+                            ScriptEditorPane(model: model).frame(minHeight: 140)
+                        }
                     }
-                    ScriptEditorPane(model: model).frame(minHeight: 140)
                 }
                 Divider()
                 TakesStrip(model: model)
             }
-            .frame(minWidth: 460)
+            .frame(minWidth: 520)
+            .background(StudioTheme.workspace)
         }
-        .frame(minWidth: 780, minHeight: 560)
+        .frame(minWidth: 820, minHeight: 620)
+        .font(.system(size: 12))
+        .foregroundStyle(StudioTheme.text)
+        .tint(StudioTheme.accent)
+        .controlSize(.small)
+        .background(StudioTheme.workspace)
+        .background(StudioWindowChrome())
         .preferredColorScheme(.dark)
         .sheet(isPresented: $model.showRecordings) { RecordingsBrowser(model: model) }
+        .sheet(isPresented: $model.showStudioSettings) { StudioSettingsView(model: model) }
     }
 }
 
@@ -66,32 +95,31 @@ struct BannerView: View {
 struct RecordingBar: View {
     @Bindable var model: AppModel
     var body: some View {
-        HStack(spacing: 12) {
-            Button { model.toggleRecording() } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: recordIcon).foregroundStyle(model.takes.state.isRecording ? .white : .red)
-                    Text(recordTitle).bold()
-                }
-                .frame(minWidth: 150)
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(model.scriptFileName ?? "Untitled script").font(.system(size: 11)).foregroundStyle(StudioTheme.secondary).lineLimit(1)
+                Text("Recording studio").font(.system(size: 20, weight: .semibold))
             }
-            .controlSize(.large)
-            .buttonStyle(.borderedProminent)
-            .tint(model.takes.state.isRecording ? .red : .gray.opacity(0.5))
+            Spacer(minLength: 12)
+            stateView.font(.system(size: 11))
+            Button { model.toggleRecording() } label: {
+                Label(recordTitle, systemImage: recordIcon)
+                    .frame(minWidth: 98)
+                    .padding(.vertical, 2)
+            }
+            .buttonStyle(StudioButtonStyle(prominent: true, destructive: model.takes.state.isRecording))
             .disabled(isTransitioning)
             .help("Start/stop recording (⇧⌘R)")
             .accessibilityLabel(recordTitle)
-
-            stateView
-            Spacer()
-            Toggle("3-second countdown", isOn: $model.settings.countdownEnabled).toggleStyle(.checkbox)
-                .disabled(model.takes.state.isBusy)
-            Toggle(isOn: Binding(get: { !model.settings.previewHidden }, set: { model.settings.previewHidden = !$0 })) {
-                Text("Show preview")
-            }
-            .toggleStyle(.checkbox)
-            .help("Hiding the preview never stops capture or recording")
+            Menu {
+                Toggle("3-second countdown", isOn: $model.settings.countdownEnabled).disabled(model.takes.state.isBusy)
+                Toggle("Show camera preview", isOn: Binding(get: { !model.settings.previewHidden }, set: { model.settings.previewHidden = !$0 }))
+                Divider()
+                Button("Studio settings…") { model.showStudioSettings = true }
+            } label: { Image(systemName: "ellipsis").font(.system(size: 15)).foregroundStyle(StudioTheme.secondary) }
+            .menuStyle(.borderlessButton).frame(width: 20).help("Studio options")
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 24).padding(.vertical, 20)
     }
 
     private var isTransitioning: Bool {
@@ -119,9 +147,9 @@ struct RecordingBar: View {
         case .recording(let start):
             TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
                 HStack(spacing: 6) {
-                    Circle().fill(.red).frame(width: 12, height: 12)
+                    Circle().fill(.red).frame(width: 6, height: 6)
                     Text("RECORDING  \(formatDuration(ctx.date.timeIntervalSince(start)))")
-                        .font(.headline.monospacedDigit()).foregroundStyle(.red)
+                        .font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(.red)
                 }
             }
             .accessibilityLabel("Recording in progress")
@@ -130,11 +158,11 @@ struct RecordingBar: View {
         case .preparing: ProgressView().controlSize(.small); Text("Checking camera, microphone and folder…").foregroundStyle(.secondary)
         case .stopping: ProgressView().controlSize(.small); Text("Finalizing the movie file…").foregroundStyle(.secondary)
         case .saved(let take):
-            Label("Saved \(take.fileName)", systemImage: "checkmark.circle.fill").foregroundStyle(.green).lineLimit(1)
+            Label("Take saved", systemImage: "checkmark.circle").foregroundStyle(StudioTheme.secondary).lineLimit(1).help(take.fileName)
         case .failed(let msg, _):
             Label(msg, systemImage: "exclamationmark.octagon.fill").foregroundStyle(.red).lineLimit(2).help(msg)
         case .idle:
-            Text(model.cameraHealth.isLive ? "Ready to record" : model.cameraHealth.label).foregroundStyle(.secondary).lineLimit(1)
+            Text(model.cameraHealth.isLive ? "Ready to record" : model.cameraHealth.label).foregroundStyle(StudioTheme.secondary).lineLimit(1)
         }
     }
 }
@@ -163,22 +191,28 @@ struct PreviewPane: View {
         }
         .overlay(alignment: .topLeading) {
             HStack(spacing: 6) {
-                if model.settings.previewMirrored { Text("Preview mirrored — recording is not").font(.caption2).padding(3).background(.black.opacity(0.6)) }
+                HStack(spacing: 5) {
+                    Circle().fill(model.cameraHealth.isLive ? Color.green : Color.orange).frame(width: 5, height: 5)
+                    Text(model.cameraHealth.isLive ? "LIVE PREVIEW" : "CAMERA").font(.system(size: 9, weight: .medium)).tracking(0.7)
+                }.padding(.horizontal, 9).padding(.vertical, 6).background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 5))
             }
-            .padding(6)
+            .padding(12)
         }
         .overlay(alignment: .bottomTrailing) {
             HStack {
-                Toggle("Mirror preview", isOn: $model.settings.previewMirrored).toggleStyle(.checkbox)
-                Toggle("Framing grid", isOn: $model.settings.showFramingGuides).toggleStyle(.checkbox)
-                    .help("Show a rule-of-thirds grid in the preview only")
+                StudioIconToggle(title: "Mirror", icon: "arrow.left.and.right.righttriangle.left.righttriangle.right", isOn: $model.settings.previewMirrored)
+                    .help("Mirror the preview only; recordings are unchanged")
+                StudioIconToggle(title: "Grid", icon: "grid", isOn: $model.settings.showFramingGuides)
+                    .help("Rule-of-thirds framing grid; preview only")
             }
-            .font(.caption).padding(6).background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6)).padding(6)
+            .padding(12)
         }
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(StudioTheme.border))
         .accessibilityElement(children: .contain)
     }
 
-    private var videoAspect: CGFloat {
+    var videoAspect: CGFloat {
         let parts = model.videoFormatText.split(separator: " ").first?.split(separator: "×").compactMap { Double($0) } ?? []
         return parts.count == 2 && parts[1] > 0 ? CGFloat(parts[0] / parts[1]) : 16.0 / 9.0
     }
@@ -202,25 +236,32 @@ struct PreviewPane: View {
 struct ScriptEditorPane: View {
     @Bindable var model: AppModel
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("Script").font(.headline)
-                if let name = model.scriptFileName { Text(name).foregroundStyle(.secondary).font(.caption) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "text.alignleft").foregroundStyle(StudioTheme.secondary)
+                Text("Script").font(.system(size: 13, weight: .medium))
+                if let name = model.scriptFileName { Text(name).foregroundStyle(StudioTheme.secondary).lineLimit(1) }
                 Spacer()
                 let _ = model.documentVersion
-                Text("\(model.document.wordCount) words · position \(min(model.promptPositionCoarse, model.document.tokens.count))/\(model.document.tokens.count)")
-                    .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                Button("Open…") { model.openScript() }.help("Open a UTF-8 text or Markdown file (⌘O)")
-            }
+                Text("\(model.document.wordCount) words").font(.system(size: 10, design: .monospaced)).foregroundStyle(StudioTheme.secondary)
+                Button { model.openScript() } label: { Label("Open", systemImage: "arrow.up.doc") }
+                    .buttonStyle(StudioButtonStyle()).help("Open script (⌘O)")
+            }.padding(.horizontal, 24).padding(.top, 16).padding(.bottom, 12)
             TextEditor(text: $model.scriptText)
-                .font(.system(size: 14))
+                .font(.system(size: 15, weight: .regular)).lineSpacing(7)
+                .foregroundStyle(StudioTheme.text)
                 .scrollContentBackground(.hidden)
-                .background(Color(white: 0.1))
+                .padding(.horizontal, 22).padding(.vertical, 8)
+                .frame(maxWidth: 900)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityLabel("Script editor")
-            Text("Autosaved. Markdown is shown as plain text. Click a phrase in the prompt to resume from there.")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-        .padding(10)
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark").font(.system(size: 9))
+                Text("Saved locally").font(.system(size: 10))
+                Spacer()
+                Text("UTF-8 · Plain text").font(.system(size: 10))
+            }.foregroundStyle(StudioTheme.secondary).padding(.horizontal, 24).padding(.vertical, 10)
+        }.background(StudioTheme.workspace)
     }
 }
 
@@ -233,13 +274,13 @@ struct TakesStrip: View {
             if let take = model.takes.takes.first {
                 Image(systemName: take.status == .complete ? "film" : "exclamationmark.triangle").foregroundStyle(take.status == .complete ? Color.secondary : Color.yellow)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(take.fileName).font(.callout).lineLimit(1).truncationMode(.middle)
+                    Text(take.fileName).font(.system(size: 11, weight: .medium)).lineLimit(1).truncationMode(.middle)
                     Text("\(formatDuration(take.duration)) · \(statusText(take)) · saved in \(take.fileURL.deletingLastPathComponent().lastPathComponent)")
-                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        .font(.system(size: 10)).foregroundStyle(StudioTheme.secondary).lineLimit(1)
                 }
                 Spacer()
-                Button("Play") { PlayerWindows.open(take.fileURL) }.disabled(!exists(take))
-                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([take.fileURL]) }.disabled(!exists(take))
+                Button("Preview", systemImage: "play") { PlayerWindows.open(take.fileURL) }.disabled(!exists(take))
+                Button { NSWorkspace.shared.activateFileViewerSelecting([take.fileURL]) } label: { Image(systemName: "folder") }.help("Reveal in Finder").disabled(!exists(take))
                 if case .saved = model.takes.state { Button("Another Take") { model.anotherTake() } }
                 if case .failed = model.takes.state { Button("Another Take") { model.anotherTake() } }
             } else {
@@ -248,7 +289,9 @@ struct TakesStrip: View {
             }
             Button("Recordings…") { model.openRecordings() }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 24).padding(.vertical, 12)
+        .buttonStyle(StudioButtonStyle())
+        .background(StudioTheme.surface)
     }
 
     func exists(_ t: TakeRecord) -> Bool { FileManager.default.fileExists(atPath: t.fileURL.path) }
