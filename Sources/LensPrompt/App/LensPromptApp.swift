@@ -25,6 +25,7 @@ struct LensPromptCommands: Commands {
         CommandMenu("Recording") {
             Button("Start/Stop Recording") { model.toggleRecording() }.keyboardShortcut("r", modifiers: [.command, .shift])
             Button("Choose Output Folder…") { model.chooseOutputFolder() }
+            Button("Recordings…") { model.openRecordings() }.keyboardShortcut("l", modifiers: [.command, .shift])
             Button("Reconnect Devices") { model.reconnect() }
         }
         CommandMenu("Prompt") {

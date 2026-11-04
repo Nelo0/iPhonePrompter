@@ -67,6 +67,10 @@ final class AppModel {
     var micHealth: LevelMeterModel.Health = .noInput
     var micFormatText = "—"
     var banner: Banner?
+    var showRecordings = false
+    var libraryRefreshing = false
+    var libraryError: String?
+    var recordingSizes: [URL: Int64] = [:]
 
     // Script
     var scriptText: String = "" { didSet { if scriptText != oldValue { scriptEdited() } } }
@@ -414,6 +418,74 @@ final class AppModel {
         // Only removes the list entry; the movie file is never deleted by LensPrompt.
         takes.replaceTakes(takes.takes.filter { $0.id != take.id })
         persistTakes()
+    }
+
+    // MARK: Recordings library
+
+    func openRecordings() {
+        showRecordings = true
+        refreshRecordings()
+    }
+
+    func refreshRecordings() {
+        guard !libraryRefreshing else { return }
+        libraryRefreshing = true
+        libraryError = nil
+        let folder = outputFolder
+        let activeURL = engine.activeRecordingURL
+        Task {
+            defer { libraryRefreshing = false }
+            do {
+                let files = try await Task.detached(priority: .utility) {
+                    try RecordingLibrary.discover(in: folder, excluding: activeURL)
+                }.value
+                var discovered: [TakeRecord] = []
+                let known = Set(takes.takes.map { $0.fileURL.resolvingSymlinksInPath().standardizedFileURL })
+                for file in files {
+                    recordingSizes[file.url] = file.bytes
+                    guard !known.contains(file.url.resolvingSymlinksInPath().standardizedFileURL) else { continue }
+                    let asset = AVURLAsset(url: file.url)
+                    let duration = try? await asset.load(.duration)
+                    let playable = (try? await asset.load(.isPlayable)) ?? false
+                    let seconds = duration.map(CMTimeGetSeconds) ?? 0
+                    discovered.append(TakeRecord(fileURL: file.url, createdAt: file.createdAt,
+                        duration: seconds.isFinite ? max(0, seconds) : 0,
+                        status: playable ? .complete : .incomplete,
+                        note: playable ? nil : "Recovered file could not be previewed. Reveal it in Finder to inspect it."))
+                }
+                // A take can finish while metadata is loading; merge into the latest list.
+                let safeDiscovered = discovered.filter { $0.fileURL.resolvingSymlinksInPath().standardizedFileURL != engine.activeRecordingURL?.resolvingSymlinksInPath().standardizedFileURL }
+                takes.replaceTakes(RecordingLibrary.merging(safeDiscovered, into: takes.takes))
+                persistTakes()
+            } catch { libraryError = "Could not read the recordings folder: \(error.localizedDescription)" }
+        }
+    }
+
+    @discardableResult
+    func renameRecording(_ take: TakeRecord, to name: String) -> Bool {
+        guard !inputsLocked else { libraryError = "Finish the current recording before renaming files."; return false }
+        do {
+            let renamed = try RecordingLibrary.rename(take, to: name)
+            if let size = recordingSizes.removeValue(forKey: take.fileURL) { recordingSizes[renamed.fileURL] = size }
+            takes.replaceTakes(takes.takes.map { $0.id == take.id ? renamed : $0 })
+            if case .saved(let saved) = takes.state, saved.id == take.id { takes.acknowledge() }
+            persistTakes()
+            libraryError = nil
+            return true
+        } catch { libraryError = error.localizedDescription; return false }
+    }
+
+    @discardableResult
+    func trashRecording(_ take: TakeRecord) -> Bool {
+        guard !inputsLocked else { libraryError = "Finish the current recording before moving files to Trash."; return false }
+        do {
+            try RecordingLibrary.moveToTrash(take)
+            recordingSizes.removeValue(forKey: take.fileURL)
+            removeTakeFromList(take)
+            if case .saved(let saved) = takes.state, saved.id == take.id { takes.acknowledge() }
+            libraryError = nil
+            return true
+        } catch { libraryError = "Could not move the recording to Trash: \(error.localizedDescription)"; return false }
     }
 
     // MARK: Script

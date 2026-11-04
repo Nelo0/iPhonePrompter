@@ -19,6 +19,7 @@ final class CaptureRecordingEngine: RecordingEngine {
 
     var currentVideoFormat: String? { formatText }
     var currentMicrophoneName: String? { micName }
+    var activeRecordingURL: URL? { writer?.url }
 
     func prepare(url: URL, audioOffsetMs: Int) async throws {
         if let problem = readinessCheck?() { throw RecordingError(problem) }

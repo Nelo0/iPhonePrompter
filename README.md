@@ -76,6 +76,14 @@ Click any phrase in the prompt to resume from there. The scroll wheel over the p
 
 Pausing the prompt never pauses the recording. Recording is a continuous start/stop.
 
+## Browse and manage recordings
+
+Click **Recordings…** at the bottom of the main window, or use **Recording › Recordings…** with Shift-Command-L. Select a take to preview it immediately, scrub through the video, or change playback volume. The browser includes thumbnails, file names, dates, durations, sizes, search, and an oldest-first toggle.
+
+Use **Rename…** to rename a video without changing its extension or overwriting another file. **Reveal in Finder** opens its location. **Move to Trash…** asks for confirmation, moves the video to the Mac's Trash, and removes its library entry. You can restore the file from Trash and use **Refresh** to rediscover it. Missing files have a **Remove Missing Entry** action that only removes stale metadata.
+
+Opening the browser or pressing Refresh discovers video files already in the current recordings folder, including previous takes that are not in the saved list. Existing interruption details are retained. Files from previously selected folders stay in the library. The active recording is excluded from discovery, and renaming and Trash actions are disabled until the current take finishes.
+
 ## How it works
 
 | Component | File |

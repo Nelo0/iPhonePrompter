@@ -26,6 +26,7 @@ struct MainView: View {
         }
         .frame(minWidth: 780, minHeight: 560)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $model.showRecordings) { RecordingsBrowser(model: model) }
     }
 }
 
@@ -227,7 +228,6 @@ struct ScriptEditorPane: View {
 
 struct TakesStrip: View {
     @Bindable var model: AppModel
-    @State private var showAll = false
     var body: some View {
         HStack(spacing: 10) {
             if let take = model.takes.takes.first {
@@ -242,14 +242,13 @@ struct TakesStrip: View {
                 Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([take.fileURL]) }.disabled(!exists(take))
                 if case .saved = model.takes.state { Button("Another Take") { model.anotherTake() } }
                 if case .failed = model.takes.state { Button("Another Take") { model.anotherTake() } }
-                Button("All Takes…") { showAll = true }
             } else {
                 Text("No takes yet. Recordings are saved to \(model.outputFolder.path).").font(.caption).foregroundStyle(.secondary)
                 Spacer()
             }
+            Button("Recordings…") { model.openRecordings() }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .sheet(isPresented: $showAll) { TakesList(model: model) }
     }
 
     func exists(_ t: TakeRecord) -> Bool { FileManager.default.fileExists(atPath: t.fileURL.path) }
@@ -260,36 +259,6 @@ func statusText(_ t: TakeRecord) -> String {
     case .complete: return "complete"
     case .interrupted: return "interrupted — \(t.note ?? "")"
     case .incomplete: return "incomplete, may not play"
-    }
-}
-
-struct TakesList: View {
-    @Bindable var model: AppModel
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("Takes").font(.title2.bold())
-            Text("Removing a take from this list never deletes the movie file.").font(.caption).foregroundStyle(.secondary)
-            List(model.takes.takes) { take in
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text(take.fileName).lineLimit(1)
-                        Text("\(take.createdAt.formatted(date: .abbreviated, time: .shortened)) · \(formatDuration(take.duration)) · \(statusText(take)) · offset \(take.audioOffsetMs) ms")
-                            .font(.caption).foregroundStyle(.secondary)
-                        if !FileManager.default.fileExists(atPath: take.fileURL.path) {
-                            Text("File not found (moved or deleted outside LensPrompt)").font(.caption).foregroundStyle(.orange)
-                        }
-                    }
-                    Spacer()
-                    Button("Play") { PlayerWindows.open(take.fileURL) }
-                    Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting([take.fileURL]) }
-                    Button("Remove from List") { model.removeTakeFromList(take) }
-                }
-            }
-            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
-        }
-        .padding()
-        .frame(minWidth: 640, minHeight: 360)
     }
 }
 

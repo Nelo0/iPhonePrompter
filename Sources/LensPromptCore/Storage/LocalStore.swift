@@ -91,5 +91,5 @@ public final class LocalStore: @unchecked Sendable {
     // MARK: Takes
 
     public func loadTakes() -> [TakeRecord] { load([TakeRecord].self, from: takesURL) ?? [] }
-    public func saveTakes(_ t: [TakeRecord]) throws { try save(Array(t.prefix(200)), to: takesURL) }
+    public func saveTakes(_ t: [TakeRecord]) throws { try save(t, to: takesURL) }
 }
