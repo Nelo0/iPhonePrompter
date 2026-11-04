@@ -1,0 +1,30 @@
+.build/
+build/
+*.xcodeproj/
+.swiftpm/
+.DS_Store
+
+# Local project notes contain personal setup and session context.
+/SPEC.md
+/BUILD_STATUS.md
+
+# Credentials, local preferences and captured media must stay local.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+*.log
+*.mov
+*.mp4
+*.m4a
+*.wav
+*.aiff
+*.caf
+/recordings/
+/snapshots/
+/settings.json
+/script.txt
