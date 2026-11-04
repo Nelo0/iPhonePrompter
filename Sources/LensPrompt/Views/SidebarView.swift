@@ -10,7 +10,7 @@ struct SidebarView: View {
                 Image(systemName: "viewfinder").font(.system(size: 17, weight: .medium))
                     .foregroundStyle(StudioTheme.accent)
                     .frame(width: 30, height: 30).background(StudioTheme.accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                Text("iPhonePrompter").font(.system(size: 14, weight: .semibold))
+                Text("iPhonePrompt").font(.system(size: 14, weight: .semibold))
                 Spacer()
             }.padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 14)
             VStack(spacing: 4) {

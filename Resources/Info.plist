@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>iPhonePrompter</string>
+	<string>iPhonePrompt</string>
 	<key>CFBundleExecutable</key>
 	<string>LensPrompt</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>iPhonePrompter</string>
+	<string>iPhonePrompt</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,10 +37,10 @@
 	<key>NSCameraUseContinuityCameraDeviceType</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>iPhonePrompter shows your iPhone (Continuity Camera) feed for framing and records it to movie files on this Mac.</string>
+	<string>iPhonePrompt shows your iPhone (Continuity Camera) feed for framing and records it to movie files on this Mac.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>iPhonePrompter records audio from the microphone you select and, if you turn on speech following, uses the same audio on this Mac to scroll your script.</string>
+	<string>iPhonePrompt records audio from the microphone you select and, if you turn on speech following, uses the same audio on this Mac to scroll your script.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>iPhonePrompter recognizes your speech on this Mac to keep the script at your reading position. Audio is not uploaded.</string>
+	<string>iPhonePrompt recognizes your speech on this Mac to keep the script at your reading position. Audio is not uploaded.</string>
 </dict>
 </plist>

@@ -1,6 +1,6 @@
-# iPhonePrompter
+# iPhonePrompt
 
-iPhonePrompter is a native macOS teleprompter and recorder. The app is named iPhonePrompter; internal build targets and the bundle directory remain LensPrompt for compatibility. It replaces a browser teleprompter plus Photo Booth in this setup: an iPhone sits landscape on a tripod in front of the Mac display, its rear camera facing you.
+iPhonePrompt is a native macOS teleprompter and recorder. The app is named iPhonePrompt; internal build targets and the bundle directory remain LensPrompt for compatibility. It replaces a browser teleprompter plus Photo Booth in this setup: an iPhone sits landscape on a tripod in front of the Mac display, its rear camera facing you.
 
 - **Live preview** of the iPhone camera, received through Continuity Camera (wireless or USB, whichever macOS uses).
 - **Recording** of camera video plus the microphone you choose (for example a Bluetooth mic) to `.mov` files (H.264 + AAC) on your Mac.
@@ -63,7 +63,7 @@ Recordings go to `~/Movies/LensPrompt` by default (change it under Recording ›
 
 Open **Studio settings** in the sidebar or press Command-comma for text appearance, voice details, phone calibration, output location and audio synchronization. The main sidebar keeps camera, microphone and prompt controls close at hand.
 
-### Keyboard shortcuts (only while iPhonePrompter is active; not system-wide)
+### Keyboard shortcuts (only while iPhonePrompt is active; not system-wide)
 
 | Key | Action |
 | --- | --- |

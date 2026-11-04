@@ -7,7 +7,7 @@ struct LensPromptApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        Window("iPhonePrompter", id: "main") {
+        Window("iPhonePrompt", id: "main") {
             MainView(model: delegate.model)
                 .onAppear { delegate.installPanels() }
         }
@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let placement = ProcessInfo.processInfo.environment["LENSPROMPT_SNAPSHOT_PLACEMENT"] == "1"
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [model] in
                 if placement { model.placementMode = true }
-                NSApp.windows.first { $0.title == "iPhonePrompter" }?.setContentSize(NSSize(width: 1280, height: 760))
+                NSApp.windows.first { $0.title == "iPhonePrompt" }?.setContentSize(NSSize(width: 1280, height: 760))
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
                     for (n, w) in NSApp.windows.enumerated() where w.isVisible {
